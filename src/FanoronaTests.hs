@@ -82,7 +82,7 @@ applyMoveTests = TestGroup "applyMove" $ concat
         (Just (State (Turn Player1)
               (Captor (Location 2 2) [Location 2 3])
               (5, 5) testBoard'' [])))
-
+  
   , Test "capture sequence 2"
       (assertEqual
         (applyMove c
