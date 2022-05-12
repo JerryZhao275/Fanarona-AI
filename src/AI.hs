@@ -21,9 +21,9 @@ data AIFunc
 -- "default" in this table is the one your tutor will dedicate most of
 -- his or her attention to marking.
 ais :: [(String, AIFunc)]
-ais = [ ("Alpha", NoLookahead (firstLegalMove COMP1100)),
-        ("Beta", NoLookahead greedy),
-        ("Gamma", WithLookahead minimax)
+ais = [ ("default", NoLookahead (firstLegalMove COMP1100)),
+        ("greedy", NoLookahead greedy),
+        ("minimax", WithLookahead minimax)
       ]
 
 -- | A very simple AI, which passes whenever it can, and if not,
@@ -96,16 +96,80 @@ gameTree state int
         where 
         subTree = gameTree appliedstate (n-1)
 
+-- Try to make it so that the values become 50 and -50 to explicitly outline the best route to take/not to take
 minimax :: GameState -> Int -> Move
-minimax state depth = minimax' (gameStates state) 0
+minimax state depth = minimaxHelper (legalMoves state) (valueTree state depth) (roseChildren (valueTree state depth))
   where
-  minimax' :: [GameState] -> Int -> Move
-  minimax' states acc = case states of
-    x:xs
-      | pieceDifference x == maximum (map pieceDifference states) -> (legalMoves state) !! acc
-      | pieceDifference x == minimum (map pieceDifference states) -> minimax' xs (acc + 1)
-      | otherwise -> minimax' xs (acc + 1)
-    _ -> Pass
+  minimaxHelper :: [Move] -> RoseTree (Int, GameState) -> [(Int, GameState)] -> Move
+  minimaxHelper moves tree children = case (moves, children) of
+    ([], _:ys) -> minimaxHelper moves tree ys
+    (_, []) -> error "Test"
+    (x:xs, (int,childstate):_) -> case applyMove COMP1130 x state of
+      Just appliedstate 
+        | childstate == appliedstate && int == (numPieces tree) -> x
+        | otherwise -> minimaxHelper xs tree children
+        where
+        numPieces :: RoseTree (Int, GameState) -> Int
+        numPieces tree' = case turn state of
+          Turn Player1 -> fst (maxChildren tree')
+          Turn Player2 -> fst (minChildren tree')
+          _ -> error "Game Over"
+      _ -> Pass
+
+numPieces' :: RoseTree (Int, GameState) -> GameState -> Int
+numPieces' tree state = case turn state of
+  Turn Player1 -> fst (maxChildren tree)
+  Turn Player2 -> fst (minChildren tree)
+  _ -> 0
+
+-- diffTree works, valueTree doesn't
+valueTree :: GameState -> Int -> RoseTree (Int, GameState)
+valueTree state depth = valueTreeHelper depth (diffTree state depth)
+    where
+    valueTreeHelper :: Int -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
+    valueTreeHelper depth' (RoseNode x trees) 
+      | depth <= 0 = (RoseNode x trees)
+      | otherwise = case turn state of
+        Turn Player1 -> (RoseNode (fst (maxChildren (RoseNode x trees)), snd x) (map (valueTreeHelper (depth' - 1)) trees))
+        Turn Player2 -> (RoseNode (fst (minChildren (RoseNode x trees)), snd x) (map (valueTreeHelper (depth' - 1)) trees))
+        _ -> (RoseNode x trees)
+  
+-- helper function that takes a list of rosetree nodes (children) and finds the maximum of them, returning (Int, GameState)
+maxChildren :: RoseTree (Int, GameState) -> (Int, GameState)
+maxChildren tree = maxHelper (roseLeaves tree)
+  where
+  maxHelper :: [(Int, GameState)] -> (Int, GameState)
+  maxHelper list = case list of
+    [] -> error "Test"
+    [(int,state)] -> (int, state)
+    (int1, state1):(int2, state2):xs
+      | int1 > int2 -> maxHelper ((int1, state1) : xs)
+      | otherwise -> maxHelper ((int2, state2) : xs)
+
+minChildren :: RoseTree (Int, GameState) -> (Int, GameState)
+minChildren tree = minHelper (roseLeaves tree)
+  where
+  minHelper :: [(Int, GameState)] -> (Int, GameState)
+  minHelper list = case list of
+    [] -> error "Test"
+    [(int,state)] -> (int, state)
+    (int1, state1):(int2, state2):xs
+      | int1 < int2 -> minHelper ((int1, state1) : xs)
+      | otherwise -> minHelper ((int2, state2) : xs)
+  
+diffTree :: GameState -> Int -> RoseTree (Int, GameState)
+diffTree state int
+  | int <= 0  = RoseNode ((pieceDifference state), state) []
+  | otherwise = RoseNode ((pieceDifference state), state) (diffTreeHelper state (legalMoves state) int)
+  where
+  diffTreeHelper :: GameState -> [Move] -> Int -> [RoseTree (Int, GameState)]
+  diffTreeHelper st moves n = case moves of
+    []   -> []
+    x:xs -> case applyMove COMP1130 x st of
+      Nothing           -> []
+      Just appliedstate -> subTree : (diffTreeHelper st xs n)
+        where 
+        subTree = diffTree appliedstate (n-1)
 
 -- | Piece difference between Player 1 (White) and Player 2 (Black)
 -- Larger values = wdvantage for white, smaller values = advantage for black
@@ -124,21 +188,38 @@ gameStates state = gameStates' state (legalMoves state)
       Nothing           -> []
       Just appliedstate -> appliedstate : gameStates' st xs 
 
-{-}
-  Turn Player1 -> p1ValueTree (gameTree state depth) state depth
-  Turn Player2 -> p2ValueTree (gameTree state depth) state depth
+roseChildren :: RoseTree a -> [a]
+roseChildren (RoseNode _ subtrees) = roseChildrenHelper subtrees
   where
-  -- These two functions should have the integers as the best outcome for the respective players
-  -- When finished computing, the primary function should pattern match with Int in (RoseTree (Int, GameState))
-  -- Set the new GameState as the GameState in (RoseTree (Int, GameState)) and recurse the function
-  p1ValueTree :: RoseTree GameState -> GameState -> Int -> RoseTree (Int, GameState)
-  p1ValueTree gametree state' depth' = undefined
-
-  p2ValueTree :: RoseTree GameState -> GameState -> Int -> RoseTree (Int, GameState)
-  p2ValueTree gametree state' depth' = undefined
--}
+  roseChildrenHelper :: [RoseTree a] -> [a]
+  roseChildrenHelper trees = case trees of
+    [] -> []
+    (RoseNode x _) : xs -> x : roseChildrenHelper xs
 
 roseLeaves :: RoseTree a -> [a]
 roseLeaves (RoseNode x subtrees)
-  | null subtrees = [x]
-  | otherwise     = concatMap roseLeaves subtrees
+    | null subtrees = [x]
+    | otherwise     = concatMap roseLeaves subtrees
+  {-
+
+minimax :: GameState -> Int -> Move
+minimax state depth = minimaxHelper state (legalMoves state) (valueTree state depth) (roseChildren (valueTree state depth))
+  where
+  minimaxHelper :: GameState -> [Move] -> RoseTree (Int, GameState) -> [(Int, GameState)] -> Move
+  minimaxHelper state' moves tree children = case moves of
+    x:xs -> case applyMove COMP1130 x state' of
+      Just appliedstate -> case children of
+        [] -> Pass
+        (int, childstate) : ys
+          | childstate == appliedstate && int == (numPieces tree) -> x
+          | otherwise -> minimaxHelper childstate xs tree children
+          where
+          numPieces :: RoseTree (Int, GameState) -> Int
+          numPieces tree' = case turn state of
+            Turn Player1 -> fst (maxChildren tree')
+            Turn Player2 -> fst (minChildren tree')
+            _ -> 0
+      Nothing -> Pass
+    _    -> Pass
+    
+    -}
