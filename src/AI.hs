@@ -95,6 +95,10 @@ gameTree state int
         where 
         subTree = gameTree appliedstate (n-1)
 
+-- | Minimax AI: Uses the Minimax algorithm to look n number of moves ahead
+-- using a gametree with the assumption that the opponent plays the best 
+-- they can using an identical heuristic.
+-- Heuristic: Choose the move with the greatest piece advantage (p1 - p2)
 minimax :: GameState -> Int -> Move
 minimax state depth = minimaxHelper (legalMoves state) (valueTree state depth) (roseChildren (optimalTree state (valueTree state depth)))
   where
@@ -112,6 +116,9 @@ minimax state depth = minimaxHelper (legalMoves state) (valueTree state depth) (
       _ -> Pass
     (_,_) -> Pass
 
+-- | valueTree function generates a RoseTree of tuples consisting of piece
+-- advantage and gamestate with the most optimal path replaced with 
+-- the greatest piece advantage.
 valueTree :: GameState -> Int -> RoseTree (Int, GameState)
 valueTree state depth = valueTreeHelper depth (diffTree state depth)
     where
@@ -123,6 +130,9 @@ valueTree state depth = valueTreeHelper depth (diffTree state depth)
         Turn Player2 -> (RoseNode (fst (minChildren (RoseNode x trees)), snd x) (map (valueTreeHelper (depth' - 1)) trees))
         _ -> (RoseNode x trees)
 
+-- | optimalTree replaces all nodes with the greatest piece advantage with 50
+-- and the least piece advantage with -50 to avoid overlapping piece advantage
+-- values.
 optimalTree :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
 optimalTree state tree = optimalHelper state tree
   where
@@ -135,31 +145,36 @@ optimalTree state tree = optimalHelper state tree
       Turn Player2
         | int == fst (minChildren tree) -> RoseNode (-50, treestate) (map (optimalHelper treestate) subtrees)
         | otherwise -> RoseNode (int, treestate) (map (optimalTree treestate) subtrees)
-      otherwise -> error "Game Over"
-    
--- helper function that takes a list of rosetree nodes (children) and finds the maximum of them, returning (Int, GameState)
+      _ -> error "Game Over"
+
+-- | maxChildren function that takes a rosetree node and finds the maximum of 
+-- it's children and it's respective gamestate.
 maxChildren :: RoseTree (Int, GameState) -> (Int, GameState)
 maxChildren tree = maxHelper (roseLeaves tree)
   where
   maxHelper :: [(Int, GameState)] -> (Int, GameState)
   maxHelper list = case list of
-    [] -> error "Test"
+    [] -> error "Empty list"
     [(int,state)] -> (int, state)
     (int1, state1):(int2, state2):xs
       | int1 > int2 -> maxHelper ((int1, state1) : xs)
       | otherwise -> maxHelper ((int2, state2) : xs)
 
+-- | minChildren function that takes a rosetree node and finds the minimum of 
+-- it's children and it's respective gamestate.
 minChildren :: RoseTree (Int, GameState) -> (Int, GameState)
 minChildren tree = minHelper (roseLeaves tree)
   where
   minHelper :: [(Int, GameState)] -> (Int, GameState)
   minHelper list = case list of
-    [] -> error "Test"
+    [] -> error "Empty list"
     [(int,state)] -> (int, state)
     (int1, state1):(int2, state2):xs
       | int1 < int2 -> minHelper ((int1, state1) : xs)
       | otherwise -> minHelper ((int2, state2) : xs)
   
+-- diffTree generates a roseTree of the piece difference of each state
+-- alongside it's respective gamestate.
 diffTree :: GameState -> Int -> RoseTree (Int, GameState)
 diffTree state int
   | int <= 0  = RoseNode ((pieceDifference state), state) []
@@ -174,13 +189,13 @@ diffTree state int
         where 
         subTree = diffTree appliedstate (n-1)
 
--- | Piece difference between Player 1 (White) and Player 2 (Black)
--- Larger values = wdvantage for white, smaller values = advantage for black
+-- | pieceDifference returns the piece difference between Player 1 (White)
+-- and Player 2 (Black).
 pieceDifference :: GameState -> Int
 pieceDifference state = case (countPieces state) of
   (p1,p2) -> p1 - p2
 
--- | Returns the list of possible GameStates given a GameState
+-- | gameStates returns the list of possible GameStates given a GameState
 gameStates :: GameState -> [GameState]
 gameStates state = gameStates' state (legalMoves state)
   where
@@ -191,6 +206,7 @@ gameStates state = gameStates' state (legalMoves state)
       Nothing           -> []
       Just appliedstate -> appliedstate : gameStates' st xs 
 
+-- | roseChildren returns the children of a rosetree as a list
 roseChildren :: RoseTree a -> [a]
 roseChildren (RoseNode _ subtrees) = roseChildrenHelper subtrees
   where
@@ -199,9 +215,42 @@ roseChildren (RoseNode _ subtrees) = roseChildrenHelper subtrees
     [] -> []
     (RoseNode x _) : xs -> x : roseChildrenHelper xs
 
+-- | roseLeaves returns the roseleaves of a rosetree as a list
 roseLeaves :: RoseTree a -> [a]
 roseLeaves (RoseNode x subtrees)
     | null subtrees = [x]
     | otherwise     = concatMap roseLeaves subtrees
 
-    -- case captor state of
+legalMovesPass :: GameState -> [Move]
+legalMovesPass state = case captor state of
+  None -> []
+  Captor _ _ -> Pass : legalMoves state
+
+pruneValueTree :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
+pruneValueTree state (RoseNode (int, treestate) subtrees) = case subtrees of
+  [] -> (RoseNode (int, state) [])
+  x:xs -> undefined
+
+firstAlphaBeta :: GameState -> RoseTree (Int, GameState) -> (Int, Int)
+firstAlphaBeta state (RoseNode (n, _) subtrees) = case subtrees of
+  []   -> case turn state of
+    Turn Player1 -> (n,100)
+    Turn Player2 -> (-100, n)
+    GameOver (Winner (Player1)) -> (n,100)
+    GameOver (Winner (Player2)) -> (-100,n)
+    GameOver Draw               -> (-100,100)
+  (RoseNode (m, state2) []) : _ -> case turn state2 of
+    Turn Player1 -> (m,100)
+    Turn Player2 -> (-100, m)
+    GameOver (Winner (Player1)) -> (m,100)
+    GameOver (Winner (Player2)) -> (-100,m)
+    GameOver Draw               -> (-100,100)
+  (RoseNode (_, _) (t:_)) : _ -> firstAlphaBeta state t
+
+
+alphaBetaTree :: RoseTree (Int, GameState) -> RoseTree (Int, Int)
+alphaBetaTree (RoseNode (int, state) subtrees) = case subtrees of
+  [] -> RoseNode (-100,100) []
+  x:xs -> undefined
+
+
