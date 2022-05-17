@@ -42,7 +42,7 @@ firstLegalMove course state = case applyMove course Pass state of
 -- increase in heuristic.
 -- Heuristic: taking the greatest number of pieces in the current turn
 greedy :: GameState -> Move
-greedy state = greedyHelper (legalMoves state)
+greedy state = greedyHelper (legalMovesPass state)
   where
   greedyHelper :: [Move] -> Move
   greedyHelper moves = case moves of
@@ -100,14 +100,14 @@ gameTree state int
 -- they can using an identical heuristic.
 -- Heuristic: Choose the move with the greatest piece advantage (p1 - p2)
 minimax :: GameState -> Int -> Move
-minimax state depth = minimaxHelper (legalMoves state) (valueTree state depth) (roseChildren (optimalTree state (valueTree state depth)))
+minimax state depth = minimaxHelper (legalMovesPass state) (roseChildren (optimalTree state (valueTree state depth)))
   where
-  minimaxHelper :: [Move] -> RoseTree (Int, GameState) -> [(Int, GameState)] -> Move
-  minimaxHelper moves tree children = case (moves, children) of
+  minimaxHelper :: [Move] -> [(Int, GameState)] -> Move
+  minimaxHelper moves children = case (moves, children) of
     (x:xs, (int,_):ys) -> case applyMove COMP1130 x state of
       Just _ 
         | int == numPieces -> x
-        | otherwise -> minimaxHelper xs tree ys
+        | otherwise -> minimaxHelper xs ys
         where
         numPieces = case turn state of
           Turn Player1 -> 50
@@ -178,7 +178,7 @@ minChildren tree = minHelper (roseLeaves tree)
 diffTree :: GameState -> Int -> RoseTree (Int, GameState)
 diffTree state int
   | int <= 0  = RoseNode ((pieceDifference state), state) []
-  | otherwise = RoseNode ((pieceDifference state), state) (diffTreeHelper state (legalMoves state) int)
+  | otherwise = RoseNode ((pieceDifference state), state) (diffTreeHelper state (legalMovesPass state) int)
   where
   diffTreeHelper :: GameState -> [Move] -> Int -> [RoseTree (Int, GameState)]
   diffTreeHelper st moves n = case moves of
@@ -197,7 +197,7 @@ pieceDifference state = case (countPieces state) of
 
 -- | gameStates returns the list of possible GameStates given a GameState
 gameStates :: GameState -> [GameState]
-gameStates state = gameStates' state (legalMoves state)
+gameStates state = gameStates' state (legalMovesPass state)
   where
   gameStates' :: GameState -> [Move] -> [GameState]
   gameStates' st moves = case moves of
@@ -221,36 +221,50 @@ roseLeaves (RoseNode x subtrees)
     | null subtrees = [x]
     | otherwise     = concatMap roseLeaves subtrees
 
+-- | legalMovesPass appends a Passing move onto the list of legal moves
+-- which can be made by the AI.
 legalMovesPass :: GameState -> [Move]
 legalMovesPass state = case captor state of
-  None -> []
+  None -> legalMoves state
   Captor _ _ -> Pass : legalMoves state
 
-pruneValueTree :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
-pruneValueTree state (RoseNode (int, treestate) subtrees) = case subtrees of
-  [] -> (RoseNode (int, state) [])
-  x:xs -> undefined
+-- | Alpha-Beta Pruning AI
+pruneAB :: GameState -> Int -> Move
+pruneAB state depth = pruneHelp state depth (roseChildren (optimalTree state (valueTree state depth)))
+  where
+  pruneHelp :: GameState -> Int -> [(Int, GameState)] -> Move
+  pruneHelp = undefined
 
-firstAlphaBeta :: GameState -> RoseTree (Int, GameState) -> (Int, Int)
-firstAlphaBeta state (RoseNode (n, _) subtrees) = case subtrees of
-  []   -> case turn state of
-    Turn Player1 -> (n,100)
-    Turn Player2 -> (-100, n)
-    GameOver (Winner (Player1)) -> (n,100)
-    GameOver (Winner (Player2)) -> (-100,n)
-    GameOver Draw               -> (-100,100)
-  (RoseNode (m, state2) []) : _ -> case turn state2 of
-    Turn Player1 -> (m,100)
-    Turn Player2 -> (-100, m)
-    GameOver (Winner (Player1)) -> (m,100)
-    GameOver (Winner (Player2)) -> (-100,m)
-    GameOver Draw               -> (-100,100)
-  (RoseNode (_, _) (t:_)) : _ -> firstAlphaBeta state t
+pruneTree :: RoseTree (Int, GameState) -> RoseTree (Int, GameState)
+pruneTree (RoseNode (int, state) list) = (RoseNode (int, state) (pruneHelper list))
+  where
+  pruneHelper :: [RoseTree (Int, GameState)] -> [RoseTree (Int, GameState)]
+  pruneHelper trees = case trees of
+    [] -> []
+    (RoseNode (int',state') subtrees):xs -> case turn state of
+      Turn Player1 
+        | (RoseNode (int',state') subtrees) == maxSubTree trees -> [(RoseNode (int',state') (pruneHelper subtrees))]
+        | otherwise -> pruneHelper xs
+      Turn Player2
+        | (RoseNode (int',state') subtrees) == minSubTree trees -> [(RoseNode (int',state') (pruneHelper subtrees))]
+        | otherwise -> pruneHelper xs
+      _ -> error "Game Over"
 
+maxSubTree :: [RoseTree (Int, GameState)] -> RoseTree (Int, GameState)
+maxSubTree list = case list of
+    [] -> error "Empty list"
+    [x] -> x
+    (RoseNode (int1, state1) lst):(RoseNode (int2, state2) lst'):xs
+      | int1 > int2 -> maxSubTree ((RoseNode (int1, state1) lst) : xs)
+      | otherwise -> maxSubTree ((RoseNode (int2, state2) lst') : xs)
 
-alphaBetaTree :: RoseTree (Int, GameState) -> RoseTree (Int, Int)
-alphaBetaTree (RoseNode (int, state) subtrees) = case subtrees of
-  [] -> RoseNode (-100,100) []
-  x:xs -> undefined
+minSubTree :: [RoseTree (Int, GameState)] -> RoseTree (Int, GameState)
+minSubTree list = case list of
+    [] -> error "Empty list"
+    [x] -> x
+    (RoseNode (int1, state1) lst):(RoseNode (int2, state2) lst'):xs
+      | int1 < int2 -> minSubTree ((RoseNode (int1, state1) lst) : xs)
+      | otherwise -> minSubTree ((RoseNode (int2, state2) lst') : xs)
 
-
+roseSize :: RoseTree a -> Int
+roseSize (RoseNode _ subtrees) = 1 + sum(map roseSize subtrees)
