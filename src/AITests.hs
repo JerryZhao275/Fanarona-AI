@@ -16,7 +16,7 @@ aiTests = TestGroup "AI"
     minimaxTest,
     diffTreeTest,
     valueTreeTest,
-    optimalTreeTest,
+    mmTreeTest,
     maxChildrenTest,
     minChildrenTest,
     pieceDifferenceTest,
@@ -52,10 +52,10 @@ valueTreeTest = Test (("valueTree generates a tree of n depth ") ++ (
     RoseNode (0,State (Turn Player1) None (
       1,1) [[Empty]] []) [] :: RoseTree (Int, GameState)))
 
-optimalTreeTest :: Test
-optimalTreeTest = Test (("optimalTree replaces the maximum nodes in") ++ (
+mmTreeTest :: Test
+mmTreeTest = Test (("mmTree replaces the maximum nodes in") ++ (
   " the tree with 50 and minimum nodes with -50")) (
-  assertEqual (optimalTree (initialState (0,0)) (
+  assertEqual (mmTree (initialState (0,0)) (
     valueTree (initialState (0,0)) 1)) (
     RoseNode (50,State (Turn Player1) None (
       1,1) [[Empty]] []) [] :: RoseTree (Int, GameState)))

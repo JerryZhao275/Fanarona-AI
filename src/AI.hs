@@ -84,7 +84,8 @@ data RoseTree a = RoseNode a [RoseTree a]
 -- they can using an identical heuristic.
 -- Heuristic: Choose the move with the greatest piece advantage (p1 - p2)
 minimax :: GameState -> Int -> Move
-minimax state depth = minimaxHelper (legalMovesPass state) (roseChildren (optimalTree state (valueTree state depth)))
+minimax state depth = minimaxHelper (legalMovesPass state) (roseChildren (
+  mmTree state (valueTree state depth)))
   where
   minimaxHelper :: [Move] -> [(Int, GameState)] -> Move
   minimaxHelper moves children = case (moves, children) of
@@ -104,34 +105,40 @@ minimax state depth = minimaxHelper (legalMovesPass state) (roseChildren (optima
 -- advantage and gamestate with the most optimal path replaced with 
 -- the greatest piece advantage.
 valueTree :: GameState -> Int -> RoseTree (Int, GameState)
-valueTree state depth = valueTreeHelper depth (diffTree state depth)
+valueTree state depth = valueTree' depth (diffTree state depth)
     where
-    valueTreeHelper :: Int -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
-    valueTreeHelper depth' (RoseNode x trees) 
+    valueTree' :: Int -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
+    valueTree' depth' (RoseNode x trees) 
       | depth <= 0 = (RoseNode x trees)
       | otherwise = case turn state of
-        Turn Player1 -> (RoseNode (fst (maxChildren (RoseNode x trees)), snd x) (map (valueTreeHelper (depth' - 1)) trees))
-        Turn Player2 -> (RoseNode (fst (minChildren (RoseNode x trees)), snd x) (map (valueTreeHelper (depth' - 1)) trees))
+        Turn Player1 -> (RoseNode (fst (maxChildren (
+          RoseNode x trees)), snd x) (map (valueTree' (depth' - 1)) trees))
+        Turn Player2 -> (RoseNode (fst (minChildren (
+          RoseNode x trees)), snd x) (map (valueTree' (depth' - 1)) trees))
         _ -> (RoseNode x trees)
 
--- | optimalTree replaces all nodes with the greatest piece advantage with 50
+-- | mmTree replaces all nodes with the greatest piece advantage with 50
 -- and the least piece advantage with -50 to avoid overlapping piece advantage
 -- values.
-optimalTree :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
-optimalTree state tree = optimalHelper state tree
+mmTree :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
+mmTree state tree = mmTree' state tree
   where
-  optimalHelper :: GameState -> RoseTree (Int, GameState) -> RoseTree (Int, GameState)
-  optimalHelper state' tree' = case tree' of
+  mmTree' :: GameState -> RoseTree (Int, GameState) ->RoseTree (Int, GameState)
+  mmTree' state' tree' = case tree' of
     RoseNode (int, treestate) subtrees -> case turn state' of
       Turn Player1
-        | int == fst (maxChildren tree) -> RoseNode (50, treestate) (map (optimalHelper treestate) subtrees)
-        | otherwise -> RoseNode (int, treestate) (map (optimalTree treestate) subtrees)
+        | int == fst (maxChildren tree) -> RoseNode (50, treestate) (
+          map (mmTree' treestate) subtrees)
+        | otherwise -> RoseNode (int, treestate) (
+          map (mmTree treestate) subtrees)
       Turn Player2
-        | int == fst (minChildren tree) -> RoseNode (-50, treestate) (map (optimalHelper treestate) subtrees)
-        | otherwise -> RoseNode (int, treestate) (map (optimalTree treestate) subtrees)
+        | int == fst (minChildren tree) -> RoseNode (-50, treestate) (
+          map (mmTree' treestate) subtrees)
+        | otherwise -> RoseNode (int, treestate) (
+          map (mmTree treestate) subtrees)
       _ -> error "Game Over"
 
--- | maxChildren function that takes a rosetree node and finds the maximum of 
+-- | maxChildren function that takes a rosetree node and finds the maximum of
 -- it's children and it's respective gamestate.
 maxChildren :: RoseTree (Int, GameState) -> (Int, GameState)
 maxChildren tree = maxHelper (roseLeaves tree)
@@ -162,7 +169,8 @@ minChildren tree = minHelper (roseLeaves tree)
 diffTree :: GameState -> Int -> RoseTree (Int, GameState)
 diffTree state int
   | int <= 0  = RoseNode ((pieceDifference state), state) []
-  | otherwise = RoseNode ((pieceDifference state), state) (diffTreeHelper state (legalMovesPass state) int)
+  | otherwise = RoseNode ((pieceDifference state), state) (
+    diffTreeHelper state (legalMovesPass state) int)
   where
   diffTreeHelper :: GameState -> [Move] -> Int -> [RoseTree (Int, GameState)]
   diffTreeHelper st moves n = case moves of
@@ -217,7 +225,8 @@ legalMovesPass state = case captor state of
 
 -- | Alpha-Beta Pruning AI
 pruneAB :: GameState -> Int -> Move
-pruneAB state depth = pruneHelp state depth (roseChildren (optimalTree state (valueTree state depth)))
+pruneAB state depth = pruneHelp state depth (roseChildren (
+  mmTree state (valueTree state depth)))
   where
   pruneHelp :: GameState -> Int -> [(Int, GameState)] -> Move
   pruneHelp = undefined
