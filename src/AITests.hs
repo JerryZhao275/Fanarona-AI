@@ -17,10 +17,9 @@ aiTests = TestGroup "AI"
     diffTreeTest,
     valueTreeTest,
     mmTreeTest,
-    maxChildrenTest,
-    minChildrenTest,
+    maxLeavesTest,
+    minLeavesTest,
     pieceDifferenceTest,
-    gameStatesTest,
     roseChildrenTest,
     roseLeavesTest,
     legalMovesPassTest
@@ -60,18 +59,18 @@ mmTreeTest = Test (("mmTree replaces the maximum nodes in") ++ (
     RoseNode (50,State (Turn Player1) None (
       1,1) [[Empty]] []) [] :: RoseTree (Int, GameState)))
 
-maxChildrenTest :: Test
-maxChildrenTest = Test (("maxChildren returns the maximum int value") ++ (
+maxLeavesTest :: Test
+maxLeavesTest = Test (("maxLeaves returns the maximum int value") ++ (
   " from the children of a given tree (int = difference in pieces)")) (
-  assertEqual (maxChildren (valueTree (initialState (1,1)) 5)) (
+  assertEqual (maxLeaves (valueTree (initialState (1,1)) 5)) (
     (2,State (Turn Player2) None (3,3) [[Empty,Empty,Empty],[
     Piece Player2,Empty,Piece Player1],[
     Piece Player1,Piece Player1,Empty]] []) :: (Int, GameState)))
 
-minChildrenTest :: Test
-minChildrenTest = Test (("minChildren returns the minimum int value") ++ (
+minLeavesTest :: Test
+minLeavesTest = Test (("minLeaves returns the minimum int value") ++ (
   " from the children of a given tree (int = difference in pieces)")) (
-  assertEqual (minChildren (valueTree (initialState (1,1)) 5)) (
+  assertEqual (minLeaves (valueTree (initialState (1,1)) 5)) (
     (-1,State (Turn Player1) None (3,3) [[
     Empty,Piece Player2,Empty],[Empty,Piece Player2,Empty],[
     Empty,Piece Player1,Empty]] []) :: (Int, GameState)))
@@ -80,13 +79,6 @@ pieceDifferenceTest :: Test
 pieceDifferenceTest = Test (("pieceDifference returns the difference in") ++ (
   " white/black pieces (>0 means white has more, <0 means black has more")) (
   assertEqual (pieceDifference (initialState (4,2))) (0 :: Int))
-
-gameStatesTest :: Test
-gameStatesTest = Test (("gameStatesTest returns the list of possible") ++ (
-  " next gamestates given a current gamestate")) (
-  assertEqual (gameStates (initialState (0,1))) ([
-    State (GameOver (Winner Player1)) None (1,3) [
-    [Empty],[Piece Player1],[Empty]] []] :: [GameState]))
 
 roseChildrenTest :: Test
 roseChildrenTest = Test (("roseChildrenTest returns the children of a") ++ (
