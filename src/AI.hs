@@ -219,8 +219,8 @@ pruneAB state depth = pruneHelp state depth (roseChildren (
   pruneHelp = undefined
 
 pruneTree :: RoseTree (Int, GameState) -> RoseTree (Int, GameState)
-pruneTree (RoseNode (int, state) list) = (
-  RoseNode (int, state) (pruneHelper list))
+pruneTree (RoseNode (int, state) list) = 
+  (RoseNode (int, state) (pruneHelper list))
   where
   pruneHelper :: [RoseTree (Int, GameState)] -> [RoseTree (Int, GameState)]
   pruneHelper trees = case trees of
@@ -235,7 +235,7 @@ pruneTree (RoseNode (int, state) list) = (
           RoseNode (int',state') (pruneHelper subtrees))]
         | otherwise -> pruneHelper xs
       _ -> error "Game Over"
-
+      
 maxSubTree :: [RoseTree (Int, GameState)] -> RoseTree (Int, GameState)
 maxSubTree list = case list of
     [] -> error "Empty list"
@@ -272,60 +272,24 @@ gameTree state int
         where 
         subTree = gameTree appliedstate (n-1)
 
-fastminimaxAI= :: GameState -> Int -> Move
-fastfastminimaxAI state depth' = fastminimaxAIHelper depth' (
-  legalMovesPass state) (gameTree state depth')
-  where 
-  fastminimaxAIHelper :: Int -> [Move] -> RoseTree GameState -> Move
-  fastminimaxAIHelper depth moves (RoseNode treestate subtrees)
-    | depth <= 1 = case moves of
-      [x] -> x
-      x:xs -> case applyMove COMP1130 x state of
-        Just appliedstate 
-          | x == bestMove moves -> x
-          | otherwise -> fastminimaxAIHelper depth xs (
-            RoseNode treestate subtrees)
-    | otherwise = bestMove (map (fastminimaxAIHelper (
-      depth - 1) moves) subtrees)
-    where
-    maxGameState :: RoseTree GameState -> GameState
-    maxGameState (RoseNode _ trees) = maxGameState' trees
-      where
-      maxGameState' :: [RoseTree GameState] -> GameState
-      maxGameState' sublist = case sublist of
-        [(RoseNode x [])] -> x
-        (RoseNode x sub):(RoseNode xs sub'):xss
-          | pieceDifference x > pieceDifference xs -> maxGameState' (
-            (RoseNode x sub):xss)
-          | otherwise -> maxGameState' ((RoseNode xs sub'):xss) 
-        _ -> error "No GameState"
-    
-    minGameState :: RoseTree GameState -> GameState
-    minGameState (RoseNode _ trees) = minGameState' trees
-      where
-      minGameState' :: [RoseTree GameState] -> GameState
-      minGameState' sublist = case sublist of
-        [(RoseNode y [])] -> y
-        (RoseNode y sub):(RoseNode ys sub'):yss
-          | pieceDifference y < pieceDifference ys -> minGameState' (
-            (RoseNode y sub):yss)
-          | otherwise -> minGameState' ((RoseNode ys sub'):yss) 
-        _ -> error "No GameState"
+fastminimaxAI :: GameState -> Int -> Move
+fastminimaxAI state depth' = 
 
-    bestMove :: [Move] -> Move
-    bestMove mvs = case mvs of
-      [] -> error "no moves"
-      [x] -> x
-      x:xs -> case applyMove COMP1130 x treestate of
-        Just appliedstate -> case turn treestate of
-          Turn Player1
-            | appliedstate == maxGameState (RoseNode treestate subtrees) -> x
-            | otherwise -> bestMove xs
-          Turn Player2 
-            | appliedstate == minGameState (RoseNode treestate subtrees) -> x
-            | otherwise -> bestMove xs
-          _ -> error "Game Over"
-        _ -> error "Game Over"
+maxGameState :: [GameState] -> GameState
+maxGameState states = case states of
+  [x] -> x
+  x:xs:xss
+    | pieceDifference x > pieceDifference xs -> maxGameState (x:xss)
+    | otherwise -> maxGameState (xs:xss) 
+  _ -> error "No GameState"
+
+minGameState :: [GameState] -> GameState
+minGameState states = case states of
+  [x] -> x
+  x:xs:xss
+    | pieceDifference x < pieceDifference xs -> minGameState (x:xss)
+    | otherwise -> minGameState (xs:xss) 
+  _ -> error "No GameState"
 
 -- | Returns the list of possible GameStates given a GameState
 gameStates :: GameState -> [GameState]

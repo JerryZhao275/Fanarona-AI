@@ -60,7 +60,7 @@ mmTreeTest = Test (("mmTree replaces the maximum nodes in") ++ (
       1,1) [[Empty]] []) [] :: RoseTree (Int, GameState)))
 
 maxLeavesTest :: Test
-maxLeavesTest = Test (("maxLeaves returns the maximum int value") ++ (
+maxLeavesTest = Test (("maxChildren returns the maximum int value") ++ (
   " from the children of a given tree (int = difference in pieces)")) (
   assertEqual (maxLeaves (valueTree (initialState (1,1)) 5)) (
     (2,State (Turn Player2) None (3,3) [[Empty,Empty,Empty],[
